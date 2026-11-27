@@ -83,3 +83,25 @@ test("trackingIssue finds the GitHub issue a Linear issue links to", async () =>
 	assert.equal(trackingIssue(a, "Jopgood/marky"), 7);
 	assert.equal(trackingIssue(a, "other/repo"), null);
 });
+
+test("newReplies forwards member comments after the pickup, once", async () => {
+	const { newReplies } = await import("./linear-intake.mjs");
+	const c = (id, at, body, extra = {}) => ({
+		id,
+		createdAt: `2026-11-27T21:${at}:00Z`,
+		body,
+		user: { name: "James", guest: false },
+		reactions: [],
+		...extra,
+	});
+	const ids = newReplies([
+		c("old", "10", "before pickup"),
+		c("p", "20", "Marky Factory picked this up."),
+		c("f", "21", "**Marky Factory · spec**\n\nQuestions"),
+		c("r1", "22", "Put it in both menus"),
+		c("seen", "23", "already sent", { reactions: [{ emoji: "👀" }] }),
+		c("guest", "24", "hi", { user: { name: "G", guest: true } }),
+		c("bot", "25", "hi", { user: null }),
+	]).map((x) => x.id);
+	assert.deepEqual(ids, ["r1"]);
+});

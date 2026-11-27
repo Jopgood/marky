@@ -63,6 +63,71 @@ const ISSUES = `query($team:String!,$project:String!,$label:String!){
   } }
 }`;
 
+// Replies: comments on started issues in the project, posted after the pickup
+// comment by a workspace member. Forwarded ones get this reaction so the next
+// poll skips them.
+const SEEN = "👀";
+const FACTORY_PREFIX = /^(\*\*Marky Factory|Marky Factory picked)/;
+
+const ACTIVE = `query($team:String!,$project:String!){
+  issues(first:50, filter:{
+    team:{key:{eq:$team}}, project:{name:{eq:$project}},
+    state:{type:{eq:"started"}}
+  }){ nodes{
+    identifier
+    attachments{ nodes{ url } }
+    comments(first:100){ nodes{
+      id body createdAt user{ name guest } reactions{ emoji }
+    } }
+  } }
+}`;
+
+/** Comments to forward to the factory, oldest first. */
+export function newReplies(comments) {
+	const sorted = comments.toSorted((a, b) =>
+		a.createdAt.localeCompare(b.createdAt),
+	);
+	const pickup = sorted.findLastIndex((c) =>
+		c.body.startsWith("Marky Factory picked"),
+	);
+	if (pickup < 0) return [];
+	return sorted
+		.slice(pickup + 1)
+		.filter(
+			(c) =>
+				c.user &&
+				!c.user.guest &&
+				!FACTORY_PREFIX.test(c.body) &&
+				!c.reactions.some((r) => r.emoji === SEEN),
+		);
+}
+
+async function forwardReplies(team, project) {
+	const { issues } = await linear(ACTIVE, { team, project });
+	for (const l of issues.nodes) {
+		const number = trackingIssue(l.attachments.nodes, repo);
+		if (!number) continue;
+		for (const c of newReplies(l.comments.nodes)) {
+			await linear(
+				"mutation($i:ReactionCreateInput!){reactionCreate(input:$i){success}}",
+				{ i: { commentId: c.id, emoji: SEEN } },
+			);
+			gh(
+				["api", "-X", "POST", `repos/${repo}/dispatches`, "--input", "-"],
+				JSON.stringify({
+					event_type: "linear-comment",
+					client_payload: {
+						issue: number,
+						author: c.user.name,
+						body: c.body.slice(0, 50000),
+					},
+				}),
+			);
+			console.log(`${l.identifier} reply → #${number}`);
+		}
+	}
+}
+
 export async function main() {
 	const { meta } = parseFrontmatter(
 		readFileSync(
@@ -77,6 +142,8 @@ export async function main() {
 				const { issues } = await linear(ISSUES, { team, project, label });
 				for (const l of issues.nodes) await pickUp(l, label);
 			}
+	for (const team of teams)
+		for (const project of projects) await forwardReplies(team, project);
 }
 
 async function pickUp(l, label) {
@@ -118,7 +185,7 @@ async function pickUp(l, label) {
 	);
 	await linearComment(
 		l.id,
-		`Marky Factory picked this up. Updates post here and on [GitHub #${number}](${ghUrl}). Reply on GitHub when the factory asks a question.`,
+		`Marky Factory picked this up. Updates post here and on [GitHub #${number}](${ghUrl}). Reply here or on GitHub when the factory asks a question.`,
 	);
 	gh(
 		["api", "-X", "POST", `repos/${repo}/dispatches`, "--input", "-"],

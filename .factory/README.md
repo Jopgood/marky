@@ -14,7 +14,7 @@ A software factory modeled on the [Warp Learn course](https://www.warp.dev/learn
 
 ## How a task moves
 
-1. The `factory` label on a GitHub issue or on a Linear issue in the Marky project, an `@factory` comment, or an error-monitor dispatch starts a task. A Linear issue gets a GitHub tracking issue (the one it already links to, or a new one), moves to In Progress, and loses the label, so adding it again starts a new run. Stage updates are posted to both. Reply on GitHub.
+1. The `factory` label on a GitHub issue or on a Linear issue in the Marky project, an `@factory` comment, or an error-monitor dispatch starts a task. A Linear issue gets a GitHub tracking issue (the one it already links to, or a new one), moves to In Progress, and loses the label, so adding it again starts a new run. Stage updates are posted to both, and you can reply in either. Linear replies reach the factory on the next poll.
 2. The runner walks `factory.yaml`'s blueprint: triage → spec → implement → handoff. Each stage gets its worker prompt, stage prompt and inputs, and replies with `outputs`, `next` and `message`.
 3. A stage that needs a human (spec questions, spec approval, an unclear request) posts its message and sets `next: wait`. The next comment from a collaborator resumes that stage.
 4. The factory opens draft PRs only. Merging stays with you.
@@ -50,7 +50,6 @@ To dry-run locally, set `FACTORY_DRY_RUN=1`, point `FACTORY_CLAUDE_BIN` at a fak
 
 ## Not yet
 
-- Replies in Linear. The factory reads replies only on the GitHub tracking issue.
 - Instant Linear pickup. A Linear webhook through the same relay as the error monitor would replace polling.
 - Error-monitor relay: a small public endpoint that verifies the Standard Webhooks signature and calls `repository_dispatch`.
 - Unit 3 work: scorers, self-improvement and benchmarks. Per-task cost and transcripts are already recorded for it.

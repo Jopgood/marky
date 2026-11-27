@@ -186,6 +186,17 @@ function resolveTask(event, name, def) {
 		};
 	}
 
+	if (name === "repository_dispatch" && event.action === "linear-comment") {
+		// A Linear reply, forwarded by linear-intake.mjs from a workspace member.
+		const { issue, author, body } = event.client_payload;
+		return {
+			issue,
+			reply: `${author} (in Linear): ${body}`,
+			mention: /(^|\s)@factory\b/i.test(body),
+			request: `Requested by ${author} in a Linear comment:\n\n${body}`,
+		};
+	}
+
 	if (name === "repository_dispatch") {
 		const { meta, body } = def.automation("error-monitor");
 		const { filter } = meta.triggers[0];

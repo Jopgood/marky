@@ -9,7 +9,7 @@ on:
   issue_comment:
     types: [created]
   repository_dispatch:
-    types: [error-monitor, linear-issue]
+    types: [error-monitor, linear-issue, linear-comment]
   # Linear intake polls; see .factory/runner/linear-intake.mjs.
   schedule:
     - cron: "*/5 * * * *"
