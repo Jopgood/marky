@@ -54,6 +54,12 @@ function formatRelativeTime(iso: string | undefined) {
 	return new Date(timestamp).toLocaleDateString();
 }
 
+function toIsoString(value: string | undefined) {
+	if (!value) return null;
+	const date = new Date(value);
+	return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 function authorLabel(author: "human" | "agent" | undefined) {
 	return author === "agent" ? "Agent" : "You";
 }
@@ -718,26 +724,29 @@ export function ReviewCommentPopover({
 										{activeComment.attrs.body}
 									</p>
 								</div>
-								{(activeComment.attrs.replies ?? []).map((reply) => (
-									<div key={reply.id} className="mt-2.5">
-										<div className="sticky top-0 z-1 flex min-h-9 items-center gap-2 bg-popover pe-24">
-											<span className="shrink-0 text-xs font-semibold">
-												{authorLabel(reply.author)}
-											</span>
-											{reply.createdAt && (
-												<time
-													dateTime={new Date(reply.createdAt).toISOString()}
-													className="truncate text-[11px] text-muted-foreground"
-												>
-													{formatRelativeTime(reply.createdAt)}
-												</time>
-											)}
+								{(activeComment.attrs.replies ?? []).map((reply) => {
+									const replyIso = toIsoString(reply.createdAt);
+									return (
+										<div key={reply.id} className="mt-2.5">
+											<div className="sticky top-0 z-1 flex min-h-9 items-center gap-2 bg-popover pe-24">
+												<span className="shrink-0 text-xs font-semibold">
+													{authorLabel(reply.author)}
+												</span>
+												{replyIso && (
+													<time
+														dateTime={replyIso}
+														className="truncate text-[11px] text-muted-foreground"
+													>
+														{formatRelativeTime(reply.createdAt)}
+													</time>
+												)}
+											</div>
+											<p className="mt-0.5 whitespace-pre-wrap text-[0.8125rem] leading-relaxed">
+												{reply.body}
+											</p>
 										</div>
-										<p className="mt-0.5 whitespace-pre-wrap text-[0.8125rem] leading-relaxed">
-											{reply.body}
-										</p>
-									</div>
-								))}
+									);
+								})}
 								<div className="mt-2.5">
 									<CommentComposer
 										value={replyDraft}
