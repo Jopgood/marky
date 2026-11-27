@@ -233,7 +233,7 @@ function buildPrompt(def, stageName, stage, state) {
 		.join("\n");
 	return `You are running stage \`${stageName}\` of the Marky Factory blueprint, on a GitHub Actions runner for ${repo}.
 
-Factory definition files live in \`.factory/\` at the repo root: resolve paths like \`skills/merge-risk/SKILL.md\` or \`stages/spec.md\` there. \`gh\` is authenticated for this repository. The tracking issue is #${state.issue}.
+Factory definition files live in \`.factory/\` at the repo root: resolve paths like \`skills/merge-risk/SKILL.md\` or \`stages/spec.md\` there. \`gh\` is authenticated for this repository. The tracking issue is #${state.issue}: this task is already about that issue, so never offer to pick it up.${state.linear ? " Your `message` is posted on that GitHub issue and on its Linear issue, so don't mention threads or where it appears." : ""}
 
 Humans cannot chat with you while you run. When you need the requester (clarifying questions, spec approval), put everything for them in \`message\`, set \`next\` to \`"wait"\`, and stop; their reply on the issue resumes this stage with the conversation below. The foreman posts \`message\` on the issue for you.
 
