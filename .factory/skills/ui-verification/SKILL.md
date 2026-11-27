@@ -1,38 +1,31 @@
 ---
 name: ui-verification
-description: Prove a user-facing change works by driving the running app over the Chrome DevTools Protocol, and add a Visual proof section to the pull request description.
+description: Prove a user-facing change works by driving the running app, and add a Visual proof section with inline screenshots to the pull request description.
 ---
 # UI verification
 
-Use this whenever a change affects something a user can see or click.
+Use this whenever a change affects something a user can see or click. Static checks don't count as proof for these changes.
 
-## Start the app
+`node .factory/runner/ui.mjs` does the plumbing: it starts the app under a virtual display (xvfb on the Linux runner), talks to it over the Chrome DevTools Protocol, takes screenshots and publishes them. Run it with no arguments for usage.
 
-1. Run `MARKY_DESKTOP_ENABLE_CDP=1 xvfb-run -a -s "-screen 0 1440x900x24" pnpm dev:desktop` in the background. The factory runs on a headless Linux runner, so the app needs a virtual display; drop `xvfb-run` on macOS.
-2. Read the terminal output for:
-   - `Playground: <path>`
-   - `DevTools listening on ws://*********:9222/...`
-3. Use the auto-opened editable playground at `apps/desktop/.dev-electron/playground` instead of file pickers or checked-in fixtures.
+## Steps
 
-## Walk the path
+1. `node .factory/runner/ui.mjs start`: builds the packages the app imports, launches it and waits until it has rendered. It opens the editable playground at `apps/desktop/.dev-electron/playground` (a few Markdown files and a folder); use it instead of file pickers. If it fails, the app log is in `$FACTORY_ARTIFACTS/app.log`.
+2. Walk the exact path the request describes. For a bug, show the symptom is gone. For a feature, show the new behavior and its key interactions.
+   - Find things: `ui.mjs eval '<js>'` runs JavaScript in the renderer and prints the result. For example, get an element's position with `JSON.stringify(el.getBoundingClientRect())`, or read the text the user would see.
+   - Act: `ui.mjs click X Y` (add `right` for a context menu) at CSS pixel coordinates, and `ui.mjs type 'text'`. Use real clicks for menus; synthetic DOM events don't open base-ui menus.
+3. `ui.mjs shot <name>` at each meaningful step, for example `1-before`, `2-menu-open`, `3-result`. Check each one by reading the PNG it prints; a screenshot of the wrong state is not proof.
+4. `ui.mjs publish` pushes the screenshots to the `factory-media` branch (never the PR branch) and prints Markdown image links.
+5. Add a `## Visual proof` section to the pull request description: the path you walked, then each image with one line on what it shows.
+6. `ui.mjs stop`.
 
-4. Walk the exact path the request describes. For a bug, show the symptom is gone. For a feature, show the new behavior and its key interactions.
-5. There is no computer-use tool on the runner; drive the app through the Chrome DevTools Protocol endpoint. It can inspect DOM state, evaluate JavaScript, click controls, inspect iframe contents, and capture screenshots from the real Electron renderer.
-6. For CDP, fetch `http://*********:9222/json/list`, connect to the page's `webSocketDebuggerUrl`, and drive the renderer with DevTools Protocol commands.
-
-## Record the proof
-
-7. Record the flow: capture frames with `Page.startScreencast` and join them with `ffmpeg` into an `.mp4`, or take `Page.captureScreenshot` shots of each step. Save every file under `$FACTORY_ARTIFACTS`; the factory uploads that folder to the run.
-8. Add a `## Visual proof` section to the pull request description: the path you walked, what each recording or screenshot shows, and a link to the run (`$FACTORY_RUN_URL`) where the media is attached. Never commit media to the branch.
-9. If the app cannot launch or the path cannot be reached, say so in the Visual proof section. Never claim a verification that did not happen.
-10. When you are done, stop the dev server and confirm no `Marky Dev` process remains.
+If the app can't start or the path can't be reached, say exactly that in Visual proof, with the error. Never claim a verification that didn't happen.
 
 ## Gotchas
 
-- Native menus (like the macOS View menu) do not render on Linux. Say so in Visual proof instead of claiming they work, and flag it for merge risk.
-
-- Build `packages/ui` and `packages/editor` first if you start the app any other way; the desktop app imports their dist output.
-- Screenshots are DPR 2: CSS pixels times 2.
-- Right clicks need real `Input.dispatchMouseEvent` events; synthetic `contextmenu` events don't open base-ui context menus.
+- On the runner the window opens at the app's default size (about 920×720) with DPR 1, so screenshot pixels are CSS pixels.
+- Native menus (like the macOS menu bar) don't exist on Linux. Say so in Visual proof and flag it for merge risk instead of claiming they work.
+- Clipboard writes can't be read back reliably on the runner. Show the UI that confirms the action, such as a toast, rather than claiming the clipboard contents.
 - Popup open in the DOM but missing from a screenshot? Check stacking with `document.elementFromPoint`.
-- xterm refits through a debounced ResizeObserver and can lag layout changes by a few seconds; re-measure before calling it a bug.
+- xterm refits through a debounced ResizeObserver and can lag layout changes by a few seconds; wait and re-measure before calling it a bug.
+- The app runs from your working tree. After changing code, `stop` and `start` again before the final screenshots.
