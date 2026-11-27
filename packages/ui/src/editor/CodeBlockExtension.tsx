@@ -238,4 +238,5 @@ const codeBlockLanguages = [
 	{ value: "python", label: "Python" },
 	{ value: "rust", label: "Rust" },
 	{ value: "go", label: "Go" },
+	{ value: "toml", label: "TOML" },
 ] as const;

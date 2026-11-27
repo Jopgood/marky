@@ -20,4 +20,12 @@ describe("code block markdown conversion", () => {
 		expect(doc.content?.[0]?.attrs).toEqual({ language: null });
 		expect(tiptapDocToMarkdown(doc)).toBe("```\nplain\n```");
 	});
+
+	it("round-trips toml fenced code blocks", () => {
+		const markdown = '```toml\n[package]\nname = "marky"\n```';
+		const doc = markdownToTiptapDoc(markdown);
+
+		expect(doc.content?.[0]?.attrs).toEqual({ language: "toml" });
+		expect(tiptapDocToMarkdown(doc)).toBe(markdown);
+	});
 });
