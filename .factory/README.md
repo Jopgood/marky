@@ -9,12 +9,12 @@ A software factory modeled on the [Warp Learn course](https://www.warp.dev/learn
 | Factory chat          | Comments on the issue; mention `@factory` to start or nudge a task  |
 | Runs tab              | Actions runs. Transcripts and media are uploaded as run artifacts    |
 | Task state            | One hidden comment on the tracking issue                             |
-| Webhook source        | `repository_dispatch` of type `error-monitor` (from a relay)         |
-| Linear trigger        | `linear-intake` job polls Linear every 5 min, then dispatches        |
+| Webhook source        | `relay/`: a Cloudflare Worker that verifies webhooks and dispatches  |
+| Linear trigger        | Linear webhook → relay → `linear-intake` job (cron every 30 min too) |
 
 ## How a task moves
 
-1. The `factory` label on a GitHub issue or on a Linear issue in the Marky project, an `@factory` comment, or an error-monitor dispatch starts a task. A Linear issue gets a GitHub tracking issue (the one it already links to, or a new one), moves to In Progress, and loses the label, so adding it again starts a new run. Stage updates are posted to both, and you can reply in either. Linear replies reach the factory on the next poll.
+1. The `factory` label on a GitHub issue or on a Linear issue in the Marky project, an `@factory` comment, or an error-monitor dispatch starts a task. A Linear issue gets a GitHub tracking issue (the one it already links to, or a new one), moves to In Progress, and loses the label, so adding it again starts a new run. Stage updates are posted to both, and you can reply in either. A Linear webhook runs the poller within seconds; the 30-minute cron catches anything a webhook missed.
 2. The runner walks `factory.yaml`'s blueprint: triage → spec → implement → handoff. Each stage gets its worker prompt, stage prompt and inputs, and replies with `outputs`, `next` and `message`.
 3. A stage that needs a human (spec questions, spec approval, an unclear request) posts its message and sets `next: wait`. The next comment from a collaborator resumes that stage.
 4. The factory opens draft PRs only. Merging stays with you.
@@ -34,6 +34,17 @@ gh api -X PUT repos/Jopgood/marky/actions/permissions/workflow \
 
 That last setting doesn't let Actions open PRs by itself. Also turn on "Allow GitHub Actions to create and approve pull requests" under Settings → Actions. PRs opened with the default token don't start other workflows. If you want CI to run on factory PRs, add a fine-grained PAT as `FACTORY_GH_TOKEN`.
 
+### Relay (Cloudflare Worker)
+
+```sh
+cd .factory/relay && npx wrangler deploy
+npx wrangler secret put GITHUB_TOKEN            # fine-grained PAT: Jopgood/marky, Contents read and write
+npx wrangler secret put LINEAR_WEBHOOK_SECRET   # from the Linear webhook below
+npx wrangler secret put MONITOR_WEBHOOK_SECRET  # optional: the error monitor endpoint's whsec_ secret
+```
+
+In Linear, add a webhook (Settings → API → Webhooks) for `https://marky-factory-relay.jehopgood.workers.dev/linear`, team JOP, with Issues and Comments. Point the error monitor at `/error-monitor`. Test with `node --test .factory/relay/src`.
+
 Seed Warp's sample backlog, then label one issue to start:
 
 ```sh
@@ -50,6 +61,4 @@ To dry-run locally, set `FACTORY_DRY_RUN=1`, point `FACTORY_CLAUDE_BIN` at a fak
 
 ## Not yet
 
-- Instant Linear pickup. A Linear webhook through the same relay as the error monitor would replace polling.
-- Error-monitor relay: a small public endpoint that verifies the Standard Webhooks signature and calls `repository_dispatch`.
 - Unit 3 work: scorers, self-improvement and benchmarks. Per-task cost and transcripts are already recorded for it.

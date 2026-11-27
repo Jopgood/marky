@@ -1,0 +1,10 @@
+{
+	"name": "marky-factory-relay",
+	"main": "src/index.js",
+	"compatibility_date": "2026-11-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"vars": { "GITHUB_REPO": "Jopgood/marky" },
+	"observability": { "enabled": true }
+	// Secrets (wrangler secret put): GITHUB_TOKEN, LINEAR_WEBHOOK_SECRET,
+	// and optionally MONITOR_WEBHOOK_SECRET to enable /error-monitor.
+}

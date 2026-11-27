@@ -9,10 +9,11 @@ on:
   issue_comment:
     types: [created]
   repository_dispatch:
-    types: [error-monitor, linear-issue, linear-comment]
-  # Linear intake polls; see .factory/runner/linear-intake.mjs.
+    types: [error-monitor, linear-issue, linear-comment, linear-poll]
+  # Linear intake: the relay (.factory/relay) sends linear-poll on each Linear
+  # webhook; the cron is a backstop for dropped webhooks.
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 # One task per issue at a time; queued events run after the current one.
@@ -27,7 +28,9 @@ permissions:
 
 jobs:
   linear-intake:
-    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'repository_dispatch' && github.event.action == 'linear-poll')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     concurrency: factory-linear-intake
@@ -52,7 +55,7 @@ jobs:
       (github.event_name == 'issue_comment' &&
         github.event.comment.user.type != 'Bot' &&
         contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
-      github.event_name == 'repository_dispatch'
+      (github.event_name == 'repository_dispatch' && github.event.action != 'linear-poll')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
