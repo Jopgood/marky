@@ -29,9 +29,9 @@ export async function linear(query, variables = {}) {
 	return json.data;
 }
 
-export const linearComment = (issueId, body) =>
+export const linearComment = (issueId, body, parentId) =>
 	linear("mutation($i:CommentCreateInput!){commentCreate(input:$i){success}}", {
-		i: { issueId, body },
+		i: { issueId, body, ...(parentId && { parentId }) },
 	});
 
 /** GitHub issue number from a Linear issue's attachments, if one links here. */
@@ -77,7 +77,7 @@ const ACTIVE = `query($team:String!,$project:String!){
     identifier
     attachments{ nodes{ url } }
     comments(first:100){ nodes{
-      id body createdAt user{ name guest } reactions{ emoji }
+      id body createdAt parent{ id } user{ name guest } reactions{ emoji }
     } }
   } }
 }`;
@@ -126,6 +126,8 @@ async function forwardReplies(team, project) {
 					client_payload: {
 						issue: number,
 						author: c.user.name,
+						// Linear threads are one level deep: answer under the top comment.
+						thread: c.parent?.id ?? c.id,
 						body: c.body.slice(0, 50000),
 					},
 				}),

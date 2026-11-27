@@ -188,9 +188,10 @@ function resolveTask(event, name, def) {
 
 	if (name === "repository_dispatch" && event.action === "linear-comment") {
 		// A Linear reply, forwarded by linear-intake.mjs from a workspace member.
-		const { issue, author, body } = event.client_payload;
+		const { issue, author, body, thread } = event.client_payload;
 		return {
 			issue,
+			linearThread: thread,
 			reply: `${author} (in Linear): ${body}`,
 			mention: /(^|\s)@factory\b/i.test(body),
 			request: `Requested by ${author} in a Linear comment:\n\n${body}`,
@@ -352,6 +353,8 @@ export async function main() {
 		saved = null;
 	}
 	state.runs.push(process.env.FACTORY_RUN_URL ?? "local");
+	// Answer in the Linear thread that woke us; a new issue posts top-level.
+	state.linearThread = task.linearThread ?? null;
 
 	const { blueprint } = def.factory;
 	for (let i = 0; i < MAX_STAGES_PER_RUN && state.next !== "end"; i++) {
@@ -378,8 +381,10 @@ export async function main() {
 		if (message) {
 			const text = `**Marky Factory · ${name}**\n\n${message}`;
 			comment(task.issue, text);
-			if (state.linear && !DRY) {
-				await linearComment(state.linear, text).catch((e) =>
+			// Linear hears only when the factory needs the requester or is done;
+			// GitHub gets every stage.
+			if (state.linear && !DRY && (next === "wait" || next === "end")) {
+				await linearComment(state.linear, text, state.linearThread).catch((e) =>
 					console.log(`::warning::Linear comment failed: ${e.message}`),
 				);
 			}
