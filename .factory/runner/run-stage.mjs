@@ -339,7 +339,8 @@ export async function main() {
 	} else {
 		state = {
 			issue: task.issue,
-			linear: task.linear,
+			// A follow-up @factory on a finished task keeps its Linear link.
+			linear: task.linear ?? saved?.state.linear,
 			request: task.request,
 			next: def.factory.blueprint.start.to,
 			waiting: null,
