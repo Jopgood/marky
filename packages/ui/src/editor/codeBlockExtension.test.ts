@@ -61,6 +61,15 @@ describe("code block editor extension", () => {
 			content: [{ type: "text", text: "print('ok')    " }],
 		});
 	});
+
+	it("highlights toml code blocks", () => {
+		const editor = createCodeBlockEditor(
+			'[package]\nname = "marky"',
+			1,
+			"toml",
+		);
+		expect(editor.view.dom.querySelector(".hljs-section")).not.toBeNull();
+	});
 });
 
 function createCodeBlockEditor(
