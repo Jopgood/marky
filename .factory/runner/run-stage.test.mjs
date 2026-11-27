@@ -100,6 +100,7 @@ test("newReplies forwards member comments after the pickup, once", async () => {
 		c("f", "21", "**Marky Factory · spec**\n\nQuestions"),
 		c("r1", "22", "Put it in both menus"),
 		c("seen", "23", "already sent", { reactions: [{ emoji: "👀" }] }),
+		c("named", "23", "seen by name", { reactions: [{ emoji: "eyes" }] }),
 		c("guest", "24", "hi", { user: { name: "G", guest: true } }),
 		c("bot", "25", "hi", { user: null }),
 	]).map((x) => x.id);

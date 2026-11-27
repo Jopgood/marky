@@ -91,15 +91,14 @@ export function newReplies(comments) {
 		c.body.startsWith("Marky Factory picked"),
 	);
 	if (pickup < 0) return [];
-	return sorted
-		.slice(pickup + 1)
-		.filter(
-			(c) =>
-				c.user &&
-				!c.user.guest &&
-				!FACTORY_PREFIX.test(c.body) &&
-				!c.reactions.some((r) => r.emoji === SEEN),
-		);
+	return sorted.slice(pickup + 1).filter(
+		(c) =>
+			c.user &&
+			!c.user.guest &&
+			!FACTORY_PREFIX.test(c.body) &&
+			// Linear reports reactions by name ("eyes"), but accepts the character.
+			!c.reactions.some((r) => r.emoji === SEEN || r.emoji === "eyes"),
+	);
 }
 
 async function forwardReplies(team, project) {
@@ -108,10 +107,18 @@ async function forwardReplies(team, project) {
 		const number = trackingIssue(l.attachments.nodes, repo);
 		if (!number) continue;
 		for (const c of newReplies(l.comments.nodes)) {
-			await linear(
+			// A duplicate reaction means an earlier poll already forwarded it.
+			const seen = await linear(
 				"mutation($i:ReactionCreateInput!){reactionCreate(input:$i){success}}",
 				{ i: { commentId: c.id, emoji: SEEN } },
+			).then(
+				() => false,
+				(e) => {
+					if (/already exists/.test(e.message)) return true;
+					throw e;
+				},
 			);
+			if (seen) continue;
 			gh(
 				["api", "-X", "POST", `repos/${repo}/dispatches`, "--input", "-"],
 				JSON.stringify({
