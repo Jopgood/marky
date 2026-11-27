@@ -13,6 +13,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
+import { linearComment } from "./linear-intake.mjs";
 
 const FACTORY_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const STATE_MARKER = "<!-- marky-factory-state";
@@ -174,6 +175,17 @@ function resolveTask(event, name, def) {
 		};
 	}
 
+	if (name === "repository_dispatch" && event.action === "linear-issue") {
+		// Sent by linear-intake.mjs, which already applied the automation filter.
+		const { body } = def.automation("linear-issues");
+		const { issue, linear: l } = event.client_payload;
+		return {
+			issue,
+			linear: l.id,
+			request: `${body}\n\nauthor: ${l.creator}\nURL: ${l.url}\nGitHub tracking issue: https://github.com/${repo}/issues/${issue}\ntitle: ${l.identifier} ${l.title}\ndescription:\n${l.description}`,
+		};
+	}
+
 	if (name === "repository_dispatch") {
 		const { meta, body } = def.automation("error-monitor");
 		const { filter } = meta.triggers[0];
@@ -292,7 +304,7 @@ function runClaude(prompt, workerName, def, stageName) {
 
 // ---------- main ----------
 
-export function main() {
+export async function main() {
 	const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
 	const def = loadFactory();
 	const task = resolveTask(event, process.env.GITHUB_EVENT_NAME, def);
@@ -316,6 +328,7 @@ export function main() {
 	} else {
 		state = {
 			issue: task.issue,
+			linear: task.linear,
 			request: task.request,
 			next: def.factory.blueprint.start.to,
 			waiting: null,
@@ -351,7 +364,13 @@ export function main() {
 
 		state.outputs[name] = result?.outputs ?? {};
 		if (message) {
-			comment(task.issue, `**Marky Factory · ${name}**\n\n${message}`);
+			const text = `**Marky Factory · ${name}**\n\n${message}`;
+			comment(task.issue, text);
+			if (state.linear && !DRY) {
+				await linearComment(state.linear, text).catch((e) =>
+					console.log(`::warning::Linear comment failed: ${e.message}`),
+				);
+			}
 			state.thread.push({ from: `factory/${name}`, text: message });
 		}
 		if (next === "wait") state.waiting = name;
@@ -369,5 +388,5 @@ if (
 	process.argv[1] === fileURLToPath(import.meta.url) &&
 	existsSync(process.env.GITHUB_EVENT_PATH ?? "")
 ) {
-	main();
+	await main();
 }

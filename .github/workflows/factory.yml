@@ -9,11 +9,15 @@ on:
   issue_comment:
     types: [created]
   repository_dispatch:
-    types: [error-monitor]
+    types: [error-monitor, linear-issue]
+  # Linear intake polls; see .factory/runner/linear-intake.mjs.
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
 
 # One task per issue at a time; queued events run after the current one.
 concurrency:
-  group: factory-${{ github.event.issue.number || github.run_id }}
+  group: factory-${{ github.event.issue.number || github.event.client_payload.issue || github.run_id }}
   cancel-in-progress: false
 
 permissions:
@@ -22,6 +26,25 @@ permissions:
   pull-requests: write
 
 jobs:
+  linear-intake:
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency: factory-linear-intake
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .factory
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: |
+          npm install --prefix .factory/runner --no-package-lock --silent
+          node .factory/runner/linear-intake.mjs
+
   run:
     # Cheap pre-filter; the runner re-checks everything.
     if: >-
@@ -36,6 +59,7 @@ jobs:
       GH_TOKEN: ${{ secrets.FACTORY_GH_TOKEN || github.token }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
       FACTORY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4

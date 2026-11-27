@@ -73,3 +73,13 @@ test("parseFrontmatter splits meta and body", () => {
 	assert.equal(meta.agentType, "FOREMAN");
 	assert.equal(body, "# Foreman");
 });
+
+test("trackingIssue finds the GitHub issue a Linear issue links to", async () => {
+	const { trackingIssue } = await import("./linear-intake.mjs");
+	const a = [
+		{ url: "https://example.com" },
+		{ url: "https://github.com/Jopgood/marky/issues/7" },
+	];
+	assert.equal(trackingIssue(a, "Jopgood/marky"), 7);
+	assert.equal(trackingIssue(a, "other/repo"), null);
+});
