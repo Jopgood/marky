@@ -234,7 +234,7 @@ function buildPrompt(def, stageName, stage, state) {
 		.join("\n");
 	return `You are running stage \`${stageName}\` of the Marky Factory blueprint, on a GitHub Actions runner for ${repo}.
 
-Factory definition files live in \`.factory/\` at the repo root: resolve paths like \`skills/merge-risk/SKILL.md\` or \`stages/spec.md\` there. \`gh\` is authenticated for this repository. The tracking issue is #${state.issue}: this task is already about that issue, so never offer to pick it up.${state.linear ? " Your `message` is posted on that GitHub issue and on its Linear issue, so don't mention threads or where it appears." : ""}
+Factory definition files live in \`.factory/\` at the repo root: resolve paths like \`skills/merge-risk/SKILL.md\` or \`stages/spec.md\` there. \`gh\` is authenticated for this repository. The tracking issue is #${state.issue}: this task is already about that issue, so never offer to pick it up.${state.linear ? " The requester follows this task in Linear: your `message` is posted there, so don't mention threads or where it appears. Never comment on the GitHub issue yourself; put findings in `message` or the pull request." : ""}
 
 Humans cannot chat with you while you run. When you need the requester (clarifying questions, spec approval), put everything for them in \`message\`, set \`next\` to \`"wait"\`, and stop; their reply on the issue resumes this stage with the conversation below. The foreman posts \`message\` on the issue for you.
 
@@ -381,10 +381,10 @@ export async function main() {
 		state.outputs[name] = result?.outputs ?? {};
 		if (message) {
 			const text = `**Marky Factory · ${name}**\n\n${message}`;
-			comment(task.issue, text);
-			// Linear hears only when the factory needs the requester or is done;
-			// GitHub gets every stage.
-			if (state.linear && !DRY && (next === "wait" || next === "end")) {
+			// A Linear task talks only in Linear (no GitHub emails), and only when
+			// it needs the requester or is done. Other tasks get every stage here.
+			if (!state.linear) comment(task.issue, text);
+			else if (!DRY && (next === "wait" || next === "end")) {
 				await linearComment(state.linear, text, state.linearThread).catch((e) =>
 					console.log(`::warning::Linear comment failed: ${e.message}`),
 				);

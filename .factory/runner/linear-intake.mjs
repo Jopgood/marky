@@ -206,7 +206,7 @@ async function pickUp(l, label) {
 	);
 	await linearComment(
 		l.id,
-		`Marky Factory picked this up. Updates post here and on [GitHub #${number}](${ghUrl}). Reply here or on GitHub when the factory asks a question.`,
+		`Marky Factory picked this up. Updates post here (tracking: [GitHub #${number}](${ghUrl})). Reply here when the factory asks a question.`,
 	);
 	gh(
 		["api", "-X", "POST", `repos/${repo}/dispatches`, "--input", "-"],
