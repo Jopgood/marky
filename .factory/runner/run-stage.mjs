@@ -17,6 +17,7 @@ import { linearComment } from "./linear-intake.mjs";
 
 const FACTORY_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const STATE_MARKER = "<!-- marky-factory-state";
+export const MENTION = /(^|\s)@factory\b/i;
 const TRUSTED = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 const MAX_STAGES_PER_RUN = 8;
 const DRY = process.env.FACTORY_DRY_RUN === "1";
@@ -170,7 +171,7 @@ function resolveTask(event, name, def) {
 		return {
 			issue: i.number,
 			reply: `@${c.user.login}: ${c.body}`,
-			mention: /(^|\s)@factory\b/i.test(c.body),
+			mention: MENTION.test(c.body),
 			request: `Requested by @${c.user.login} in a comment on ${i.html_url} ("${i.title}"):\n\n${c.body}`,
 		};
 	}
@@ -193,7 +194,7 @@ function resolveTask(event, name, def) {
 			issue,
 			linearThread: thread,
 			reply: `${author} (in Linear): ${body}`,
-			mention: /(^|\s)@factory\b/i.test(body),
+			mention: MENTION.test(body),
 			request: `Requested by ${author} in a Linear comment:\n\n${body}`,
 		};
 	}

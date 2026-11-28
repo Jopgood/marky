@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseFrontmatter } from "./run-stage.mjs";
+import { MENTION, parseFrontmatter, readState } from "./run-stage.mjs";
 
 const FACTORY_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repo = process.env.GITHUB_REPOSITORY;
@@ -64,8 +64,9 @@ const ISSUES = `query($team:String!,$project:String!,$label:String!){
 }`;
 
 // Replies: comments on started issues in the project, posted after the pickup
-// comment by a workspace member. Forwarded ones get this reaction so the next
-// poll skips them.
+// comment by a workspace member, that the factory will act on: an answer while
+// it waits, or an @factory mention. Only forwarded ones get this reaction (the
+// next poll skips them), so a 👀 means a reply is coming.
 const SEEN = "👀";
 const FACTORY_PREFIX = /^(\*\*Marky Factory|Marky Factory picked)/;
 
@@ -82,8 +83,11 @@ const ACTIVE = `query($team:String!,$project:String!){
   } }
 }`;
 
-/** Comments to forward to the factory, oldest first. */
-export function newReplies(comments) {
+/**
+ * Comments to forward to the factory, oldest first. `waiting`: the task is
+ * waiting for an answer, so comments after its latest message count.
+ */
+export function newReplies(comments, waiting) {
 	const sorted = comments.toSorted((a, b) =>
 		a.createdAt.localeCompare(b.createdAt),
 	);
@@ -91,8 +95,10 @@ export function newReplies(comments) {
 		c.body.startsWith("Marky Factory picked"),
 	);
 	if (pickup < 0) return [];
+	const asked = sorted.findLastIndex((c) => FACTORY_PREFIX.test(c.body));
 	return sorted.slice(pickup + 1).filter(
-		(c) =>
+		(c, i) =>
+			(MENTION.test(c.body) || (waiting && pickup + 1 + i > asked)) &&
 			c.user &&
 			!c.user.guest &&
 			!FACTORY_PREFIX.test(c.body) &&
@@ -106,7 +112,13 @@ async function forwardReplies(team, project) {
 	for (const l of issues.nodes) {
 		const number = trackingIssue(l.attachments.nodes, repo);
 		if (!number) continue;
-		for (const c of newReplies(l.comments.nodes)) {
+		const task = readState(
+			JSON.parse(
+				gh(["issue", "view", String(number), "--repo", repo, "--json", "comments"]),
+			).comments,
+		)?.state;
+		const waiting = Boolean(task && !task.done && task.waiting);
+		for (const c of newReplies(l.comments.nodes, waiting)) {
 			// A duplicate reaction means an earlier poll already forwarded it.
 			const seen = await linear(
 				"mutation($i:ReactionCreateInput!){reactionCreate(input:$i){success}}",

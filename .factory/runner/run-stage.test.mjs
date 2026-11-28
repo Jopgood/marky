@@ -94,15 +94,21 @@ test("newReplies forwards member comments after the pickup, once", async () => {
 		reactions: [],
 		...extra,
 	});
-	const ids = newReplies([
+	const comments = [
 		c("old", "10", "before pickup"),
 		c("p", "20", "Marky Factory picked this up."),
+		c("chat", "20", "nice, thanks"),
 		c("f", "21", "**Marky Factory · spec**\n\nQuestions"),
 		c("r1", "22", "Put it in both menus"),
+		c("ping", "22", "@factory also check the tests"),
 		c("seen", "23", "already sent", { reactions: [{ emoji: "👀" }] }),
 		c("named", "23", "seen by name", { reactions: [{ emoji: "eyes" }] }),
 		c("guest", "24", "hi", { user: { name: "G", guest: true } }),
 		c("bot", "25", "hi", { user: null }),
-	]).map((x) => x.id);
-	assert.deepEqual(ids, ["r1"]);
+	];
+	const ids = (waiting) => newReplies(comments, waiting).map((x) => x.id);
+	// Waiting: answers after the factory's question, never chat from before it.
+	assert.deepEqual(ids(true), ["r1", "ping"]);
+	// Done or running: only an @factory mention reaches it (and gets a 👀).
+	assert.deepEqual(ids(false), ["ping"]);
 });
